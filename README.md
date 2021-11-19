@@ -1,6 +1,8 @@
 # go-mcprotocol
 
-go-mcprotocol is a library for PLC (Programmable Logic Controller) access
+go-mcprotocol is a library for PLC (Programmable Logic Controller) access.
+
+This client supports a constant TCP connection that is kept alive until explicitly closed.
 
 ## Project Status
 
@@ -11,7 +13,7 @@ go-mcprotocol is a library for PLC (Programmable Logic Controller) access
 You can read plc register bellow codes.
 
 ```go
-	client, _ := mcp.New3EClient(opts.Host, opts.Port, mcp.NewLocalStation())
+	client, _ := mcp.New3EClient(opts.Host, opts.Port, mcp.NewLocalStation(), keep_alive_flag)
 	read, _ := client.Read("D", 100, 3)
 	registerBinary, _ := mcp.NewParser().Do(read)
 
