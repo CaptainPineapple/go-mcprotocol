@@ -12,6 +12,7 @@ type Client interface {
 	BitRead(deviceName string, offset, numPoints int64) ([]byte, error)
 	Write(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error)
 	HealthCheck() error
+	ShutDown()
 }
 
 // client3E is 3E frame mcp client
@@ -20,14 +21,23 @@ type client3E struct {
 	tcpAddr *net.TCPAddr
 	// PLC station
 	stn *station
+	// Connection Handle to PLC
+	conn *net.TCPConn
 }
 
-func New3EClient(host string, port int, stn *station) (Client, error) {
+func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%v", host, port))
 	if err != nil {
 		return nil, err
 	}
-	return &client3E{tcpAddr: tcpAddr, stn: stn}, nil
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	conn.SetKeepAlive(keep_alive)
+
+	return &client3E{tcpAddr: tcpAddr, stn: stn, conn: conn}, nil
 }
 
 // MELSECコミュニケーションプロトコル p180
@@ -41,21 +51,14 @@ func (c *client3E) HealthCheck() error {
 		return err
 	}
 
-	// TODO Keep-Alive
-	conn, err := net.DialTCP("tcp", nil, c.tcpAddr)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
 	// Send message
-	if _, err = conn.Write(payload); err != nil {
+	if _, err = c.conn.Write(payload); err != nil {
 		return err
 	}
 
 	// Receive message
 	readBuff := make([]byte, 30)
-	readLen, err := conn.Read(readBuff)
+	readLen, err := c.conn.Read(readBuff)
 	if err != nil {
 		return err
 	}
@@ -92,20 +95,14 @@ func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, err
 		return nil, err
 	}
 
-	conn, err := net.DialTCP("tcp", nil, c.tcpAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
 	// Send message
-	if _, err = conn.Write(payload); err != nil {
+	if _, err = c.conn.Write(payload); err != nil {
 		return nil, err
 	}
 
 	// Receive message
 	readBuff := make([]byte, 22+2*numPoints) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
-	readLen, err := conn.Read(readBuff)
+	readLen, err := c.conn.Read(readBuff)
 	if err != nil {
 		return nil, err
 	}
@@ -126,20 +123,14 @@ func (c *client3E) BitRead(deviceName string, offset, numPoints int64) ([]byte, 
 		return nil, err
 	}
 
-	conn, err := net.DialTCP("tcp", nil, c.tcpAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
 	// Send message
-	if _, err = conn.Write(payload); err != nil {
+	if _, err = c.conn.Write(payload); err != nil {
 		return nil, err
 	}
 
 	// Receive message
 	readBuff := make([]byte, 22+2*numPoints) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
-	readLen, err := conn.Read(readBuff)
+	readLen, err := c.conn.Read(readBuff)
 	if err != nil {
 		return nil, err
 	}
@@ -179,4 +170,8 @@ func (c *client3E) Write(deviceName string, offset, numPoints int64, writeData [
 		return nil, err
 	}
 	return readBuff[:readLen], nil
+}
+
+func (c *client3E) ShutDown() {
+	c.conn.Close()
 }

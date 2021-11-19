@@ -31,7 +31,8 @@ func TestClient3E_Read(t *testing.T) {
 		t.Skip("environment variable PLC_TEST_PORT is not set")
 	}
 
-	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation())
+	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation(), true)
+	defer client.ShutDown()
 	if err != nil {
 		t.Fatalf("PLC does not exists? %v", err)
 	}
@@ -74,7 +75,8 @@ func TestClient3E_BitRead(t *testing.T) {
 		t.Skip("environment variable PLC_TEST_PORT is not set")
 	}
 
-	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation())
+	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation(), true)
+	defer client.ShutDown()
 	if err != nil {
 		t.Fatalf("PLC does not exists? %v", err)
 	}
@@ -130,7 +132,8 @@ func TestClient3E_Write(t *testing.T) {
 		t.Skip("environment variable PLC_TEST_PORT is not set")
 	}
 
-	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation())
+	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation(), true)
+	defer client.ShutDown()
 	if err != nil {
 		t.Fatalf("PLC does not exists? %v", err)
 	}
@@ -150,7 +153,8 @@ func TestClient3E_Ping(t *testing.T) {
 		t.Skip("environment variable PLC_TEST_PORT is not set")
 	}
 
-	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation())
+	client, err := New3EClient(testPLCHost, testPLCPort, NewLocalStation(), true)
+	defer client.ShutDown()
 	if err != nil {
 		t.Fatalf("PLC does not exists? %v", err)
 	}
