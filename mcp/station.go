@@ -16,8 +16,9 @@ const (
 	READ_SUB_COMMAND     = "0000"
 	BIT_READ_SUB_COMMAND = "0100"
 
-	WRITE_COMMAND     = "0114" // binary mode expression. if ascii mode then 1401
-	WRITE_SUB_COMMAND = "0000"
+	WRITE_COMMAND         = "0114" // binary mode expression. if ascii mode then 1401
+	WRITE_SUB_COMMAND     = "0000"
+	BIT_WRITE_SUB_COMMAND = "0100"
 
 	MONITORING_TIMER = "1000" // 3[sec]
 )
@@ -140,6 +141,14 @@ func (h *station) buildReadRequestHelper(deviceName string, offset, numPoints in
 		points
 }
 
+func (h *station) BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, WRITE_SUB_COMMAND)
+}
+
+func (h *station) BuildBitWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, BIT_WRITE_SUB_COMMAND)
+}
+
 // BuildWriteRequest represents MCP write command.
 // deviceName is device code name like 'D' register.
 // offset is device offset addr.
@@ -147,8 +156,7 @@ func (h *station) buildReadRequestHelper(deviceName string, offset, numPoints in
 // numPoints is number of write device points.
 // writeData is the data to be written. If writeData is larger than 2*numPoints bytes,
 // data larger than 2*numPoints bytes is ignored.
-func (h *station) BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
-
+func (h *station) buildWriteRequestHelper(deviceName string, offset, numPoints int64, writeData []byte, subCommand string) string {
 	// get device symbol hex layout
 	deviceCode := DeviceCodes[deviceName]
 
@@ -181,7 +189,7 @@ func (h *station) BuildWriteRequest(deviceName string, offset, numPoints int64, 
 		dataLen +
 		MONITORING_TIMER +
 		WRITE_COMMAND +
-		WRITE_SUB_COMMAND +
+		subCommand +
 		offsetHex +
 		deviceCode +
 		points +
