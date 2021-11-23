@@ -11,6 +11,7 @@ type Client interface {
 	Read(deviceName string, offset, numPoints int64) ([]byte, error)
 	BitRead(deviceName string, offset, numPoints int64) ([]byte, error)
 	Write(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error)
+	BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error)
 	HealthCheck() error
 	ShutDown()
 }
@@ -87,27 +88,7 @@ func (c *client3E) HealthCheck() error {
 // offset is device offset addr.
 // numPoints is number of read device points.
 func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, error) {
-	requestStr := c.stn.BuildReadRequest(deviceName, offset, numPoints)
-
-	// TODO binary protocol
-	payload, err := hex.DecodeString(requestStr)
-	if err != nil {
-		return nil, err
-	}
-
-	// Send message
-	if _, err = c.conn.Write(payload); err != nil {
-		return nil, err
-	}
-
-	// Receive message
-	readBuff := make([]byte, 22+2*numPoints) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
-	readLen, err := c.conn.Read(readBuff)
-	if err != nil {
-		return nil, err
-	}
-
-	return readBuff[:readLen], nil
+	return c.readHelper(c.stn.BuildReadRequest(deviceName, offset, numPoints), numPoints)
 }
 
 // BitRead is send read as bit command to remote plc by mc protocol
@@ -116,7 +97,10 @@ func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, err
 // numPoints is number of read device points.
 // results of payload of BitRead will return []byte contains 0, 1, 16 or 17(hex encoded 00, 01, 10, 11)
 func (c *client3E) BitRead(deviceName string, offset, numPoints int64) ([]byte, error) {
-	requestStr := c.stn.BuildBitReadRequest(deviceName, offset, numPoints)
+	return c.readHelper(c.stn.BuildBitReadRequest(deviceName, offset, numPoints), numPoints)
+}
+
+func (c *client3E) readHelper(requestStr string, numPoints int64) ([]byte, error) {
 	// TODO binary protocol
 	payload, err := hex.DecodeString(requestStr)
 	if err != nil {
@@ -146,26 +130,27 @@ func (c *client3E) BitRead(deviceName string, offset, numPoints int64) ([]byte, 
 // writeData is the data to be written. If writeData is larger than 2*numPoints bytes,
 // data larger than 2*numPoints bytes is ignored.
 func (c *client3E) Write(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
-	requestStr := c.stn.BuildWriteRequest(deviceName, offset, numPoints, writeData)
+	return c.writeHelper(c.stn.BuildWriteRequest(deviceName, offset, numPoints, writeData))
+}
+
+func (c *client3E) BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
+	return c.writeHelper(c.stn.BuildBitWriteRequest(deviceName, offset, numPoints, writeData))
+}
+
+func (c *client3E) writeHelper(requestStr string) ([]byte, error) {
 	payload, err := hex.DecodeString(requestStr)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.DialTCP("tcp", nil, c.tcpAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
 	// Send message
-	if _, err = conn.Write(payload); err != nil {
+	if _, err = c.conn.Write(payload); err != nil {
 		return nil, err
 	}
 
 	// Receive message
 	readBuff := make([]byte, 22) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
 
-	readLen, err := conn.Read(readBuff)
+	readLen, err := c.conn.Read(readBuff)
 	if err != nil {
 		return nil, err
 	}
