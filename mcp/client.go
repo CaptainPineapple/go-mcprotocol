@@ -15,7 +15,7 @@ type Client interface {
 	BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error)
 	HealthCheck() error
 	ShutDown()
-	Reconnect()
+	Reconnect() error
 }
 
 // client3E is 3E frame mcp client
