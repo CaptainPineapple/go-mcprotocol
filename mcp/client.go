@@ -28,19 +28,19 @@ type client3E struct {
 	conn *net.TCPConn
 }
 
-func New3EClient(host string, port int, stn *station, keep_alive bool) (*Client, error) {
+func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, error) {
 	//tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%v", host, port))
 	// if err != nil {
 	// 	return nil, err
 	// }
-	newClient := &client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
+	newClient := client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
 	err := newClient.Connect()
 	if err != nil {
 		return nil, err
 	}
 	//newClient.conn.SetKeepAlive(keep_alive)
 
-	return newClient, nil
+	return &newClient, nil
 }
 
 // MELSECコミュニケーションプロトコル p180
