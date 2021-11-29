@@ -86,7 +86,7 @@ func (c *client3E) HealthCheck() error {
 }
 
 func (c *client3E) Connect() error {
-	dialer := net.Dialer{Timeout: 10}
+	dialer := net.Dialer{Timeout: 3 * time.Second}
 	conn, err := dialer.Dial("tcp", c.tcpAddr)
 	if err != nil {
 		return err
