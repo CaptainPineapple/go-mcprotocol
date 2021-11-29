@@ -97,7 +97,7 @@ func (c *client3E) Connect() error {
 
 func (c *client3E) Reconnect() error {
 	c.ShutDown()
-	time.sleep(1 * time.seconds)
+	time.Sleep(1 * time.Second)
 	return c.Connect()
 }
 
