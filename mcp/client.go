@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 )
 
 type Client interface {
@@ -14,12 +15,13 @@ type Client interface {
 	BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error)
 	HealthCheck() error
 	ShutDown()
+	Reconnect()
 }
 
 // client3E is 3E frame mcp client
 type client3E struct {
 	// PLC address
-	tcpAddr *net.TCPAddr
+	tcpAddr string //*net.TCPAddr
 	// PLC station
 	stn *station
 	// Connection Handle to PLC
@@ -27,18 +29,15 @@ type client3E struct {
 }
 
 func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%v", host, port))
-	if err != nil {
-		return nil, err
-	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		return nil, err
-	}
+	//tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%v", host, port))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	newClient := &client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
+	newClient.Connect()
+	conn.SetKeepAlive(keep_alive)
 
-	//conn.SetKeepAlive(keep_alive)
-
-	return &client3E{tcpAddr: tcpAddr, stn: stn, conn: conn}, nil
+	return newClient, nil
 }
 
 // MELSECコミュニケーションプロトコル p180
@@ -81,6 +80,25 @@ func (c *client3E) HealthCheck() error {
 	}
 
 	return nil
+}
+
+func (c *client3E) Connect() error {
+	dialer := net.Dialer{Timeout: 10}
+	conn, err := dialer.Dial("tcp", c.tcpAddr)
+	if err != nil {
+		return err
+	}
+
+	tcpConn, _ := conn.(*net.TCPConn)
+
+	c.conn = tcpConn
+	return nil
+}
+
+func (c *client3E) Reconnect() error {
+	c.ShutDown()
+	time.sleep(1 * time.seconds)
+	return c.Connect()
 }
 
 // Read is send read as word command to remote plc by mc protocol
