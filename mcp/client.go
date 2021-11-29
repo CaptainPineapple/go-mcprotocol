@@ -33,11 +33,11 @@ func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, 
 	// if err != nil {
 	// 	return nil, err
 	// }
-	newClient := &client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
+	newClient := client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
 	newClient.Connect()
 	//newClient.conn.SetKeepAlive(keep_alive)
 
-	return newClient, nil
+	return &newClient, nil
 }
 
 // MELSECコミュニケーションプロトコル p180
