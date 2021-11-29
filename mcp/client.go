@@ -16,6 +16,7 @@ type Client interface {
 	HealthCheck() error
 	ShutDown()
 	Reconnect() error
+	Connect() error
 }
 
 // client3E is 3E frame mcp client
