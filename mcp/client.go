@@ -35,7 +35,7 @@ func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, 
 	// }
 	newClient := &client3E{tcpAddr: fmt.Sprintf("%v:%v", host, port), stn: stn}
 	newClient.Connect()
-	conn.SetKeepAlive(keep_alive)
+	//newClient.conn.SetKeepAlive(keep_alive)
 
 	return newClient, nil
 }
