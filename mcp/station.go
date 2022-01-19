@@ -13,6 +13,7 @@ const (
 	HEALTH_CHECK_SUBCOMMAND = "0000"
 
 	READ_COMMAND         = "0104" // binary mode expression. if ascii mode then 0401
+	MULTI_READ_COMMAND   = "0604" // binary mode expression. if ascii mode then 0406
 	READ_SUB_COMMAND     = "0000"
 	BIT_READ_SUB_COMMAND = "0100"
 
@@ -88,6 +89,37 @@ func (h *station) BuildHealthCheckRequest() string {
 		dataLen +
 		MONITORING_TIMER +
 		requestStr
+}
+
+func (h *station) BuildMultiReadRequest(deviceNames []string, offsets, numPoints []int64) string {
+	if !(len(deviceNames) == len(offsets) == len(numPoints)) {
+
+	}
+	dataLenBuff := new(bytes.Buffer)
+	offsetBuff := new(bytes.Buffer)
+	numpointsBuff := new(bytes.Buffer)
+
+	_ = binary.Write(dataLenBuff, binary.LittleEndian, int64(len(deviceNames)))
+	request := SUB_HEADER +
+		h.networkNum +
+		h.pcNum +
+		h.unitIONum +
+		h.unitStationNum +
+		fmt.Sprintf("%X", dataLenBuff.Bytes()[0:2]) +
+		MONITORING_TIMER +
+		MULTI_READ_COMMAND +
+		READ_SUB_COMMAND
+
+	for i := 0; i < len(deviceNames); i++ {
+		numpointsBuff.Reset()
+		offsetBuff.Reset()
+		_ = binary.Write(offsetBuff, binary.LittleEndian, offsets[i])
+		_ = binary.Write(numpointsBuff, binary.LittleEndian, numPoints[i])
+		request += fmt.Sprintf("%X", offsetBuff.Bytes()[0:3]) +
+			DeviceCodes[deviceNames[i]] +
+			fmt.Sprintf("%X", offsetBuff.Bytes()[0:2])
+	}
+	return request
 }
 
 // BuildReadRequest represents MCP read as word command.
