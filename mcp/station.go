@@ -36,38 +36,46 @@ var DeviceCodes = map[string]string{
 	"D": "A8",
 }
 
+type Station interface {
+	BuildHealthCheckRequest() string
+	BuildBitReadRequest(deviceName string, offset, numPoints int64) string
+	BuildReadRequest(deviceName string, offset, numPoints int64) string
+	//BuildBatchReadRequest(deviceName string, offset, numPoints int64) string
+	//BuildRandomReadRequest(...)
+	BuildBitWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string
+	BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string
+}
+
 // Each single PLC that is connected on MELSECNET and CC-Link IE is called a station.
-type station struct {
-	// PLC Network number
+type station3E struct {
+	// PLC Network number - not used in 1E Frame
 	networkNum string
 	// PC Number
 	pcNum string
-	// PLC stn Unit I/O Number
+	// PLC stn Unit I/O Number - not used in 1E Frame
 	unitIONum string
-	// PLC stn Unit Station Number
+	// PLC stn Unit Station Number - not used in 1E Frame
 	unitStationNum string
 }
 
-func NewStation(networkNum, pcNum, unitIONum, unitStationNum string) *station {
-	return &station{
-		networkNum:     networkNum,
-		pcNum:          pcNum,
-		unitIONum:      unitIONum,
-		unitStationNum: unitStationNum,
+func NewStation(networkNum, pcNum, unitIONum, unitStationNum string, frameVersion FrameVersion) (Station, error) {
+	switch frameVersion {
+	case Frame1E:
+		return &station1E{
+			pcNum: pcNum,
+		}, nil
+	case Frame3E:
+		return &station3E{
+			networkNum:     networkNum,
+			pcNum:          pcNum,
+			unitIONum:      unitIONum,
+			unitStationNum: unitStationNum,
+		}, nil
 	}
+	return nil, fmt.Errorf("Cannot create station for unhandled frameVersion %s", frameVersion)
 }
 
-// local stn stn. local stn is 自局.
-func NewLocalStation() *station {
-	return &station{
-		networkNum:     "00",   // 自局の場合は00固定
-		pcNum:          "FF",   // 自局の場合はFF固定
-		unitIONum:      "FF03", // マルチドロップ接続などでない場合はFF03固定値
-		unitStationNum: "00",   // マルチドロップ接続などでない場合は00固定値
-	}
-}
-
-func (h *station) BuildHealthCheckRequest() string {
+func (h *station3E) BuildHealthCheckRequest() string {
 
 	returnDataNum := "0500"    // 5 device. if ascii mode then 0005
 	returnData := "4142434445" // value is "ABCDE".
@@ -94,7 +102,7 @@ func (h *station) BuildHealthCheckRequest() string {
 // deviceName is device code name like 'D' register.
 // offset is device offset addr.
 // numPoints is number of read device points.
-func (h *station) BuildReadRequest(deviceName string, offset, numPoints int64) string {
+func (h *station3E) BuildReadRequest(deviceName string, offset, numPoints int64) string {
 	return h.buildReadRequestHelper(deviceName, offset, numPoints, READ_SUB_COMMAND)
 }
 
@@ -102,11 +110,11 @@ func (h *station) BuildReadRequest(deviceName string, offset, numPoints int64) s
 // deviceName is device code name like 'D' register.
 // offset is device offset addr.
 // numPoints is number of read device points.
-func (h *station) BuildBitReadRequest(deviceName string, offset, numPoints int64) string {
+func (h *station3E) BuildBitReadRequest(deviceName string, offset, numPoints int64) string {
 	return h.buildReadRequestHelper(deviceName, offset, numPoints, BIT_READ_SUB_COMMAND)
 }
 
-func (h *station) buildReadRequestHelper(deviceName string, offset, numPoints int64, subCommand string) string {
+func (h *station3E) buildReadRequestHelper(deviceName string, offset, numPoints int64, subCommand string) string {
 	// get device symbol hex layout
 	deviceCode := DeviceCodes[deviceName]
 
@@ -141,11 +149,11 @@ func (h *station) buildReadRequestHelper(deviceName string, offset, numPoints in
 		points
 }
 
-func (h *station) BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+func (h *station3E) BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
 	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, WRITE_SUB_COMMAND)
 }
 
-func (h *station) BuildBitWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+func (h *station3E) BuildBitWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
 	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, BIT_WRITE_SUB_COMMAND)
 }
 
@@ -156,7 +164,7 @@ func (h *station) BuildBitWriteRequest(deviceName string, offset, numPoints int6
 // numPoints is number of write device points.
 // writeData is the data to be written. If writeData is larger than 2*numPoints bytes,
 // data larger than 2*numPoints bytes is ignored.
-func (h *station) buildWriteRequestHelper(deviceName string, offset, numPoints int64, writeData []byte, subCommand string) string {
+func (h *station3E) buildWriteRequestHelper(deviceName string, offset, numPoints int64, writeData []byte, subCommand string) string {
 	// get device symbol hex layout
 	deviceCode := DeviceCodes[deviceName]
 
@@ -196,6 +204,15 @@ func (h *station) buildWriteRequestHelper(deviceName string, offset, numPoints i
 		writeHex
 }
 
-func (h *station) BuildAccessPath() {
+type station1E struct {
+	// PC Number
+	pcNum string
+}
 
+func (h *station1E) BuildWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, WRITE_SUB_COMMAND)
+}
+
+func (h *station1E) BuildBitWriteRequest(deviceName string, offset, numPoints int64, writeData []byte) string {
+	return h.buildWriteRequestHelper(deviceName, offset, numPoints, writeData, BIT_WRITE_SUB_COMMAND)
 }

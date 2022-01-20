@@ -5,11 +5,25 @@ import (
 	"fmt"
 )
 
-type parser struct {
+type Parser interface {
+	Process(resp []byte) (*Response, error)
 }
 
-func NewParser() *parser {
-	return &parser{}
+type parser_3E struct {
+}
+
+type parser_1E struct {
+}
+
+func NewParser(frameVersion FrameVersion) Parser {
+	switch frameVersion {
+	case Frame1E:
+		return &parser_1E{}
+	case Frame3E:
+		return &parser_3E{}
+	default:
+		return nil
+	}
 }
 
 // Response represents mcp response
@@ -34,8 +48,8 @@ type Response struct {
 	ErrInfo []byte
 }
 
-func (p *parser) Do(resp []byte) (*Response, error) {
-	if len(resp) < 11 {
+func (p *parser_3E) Process(resp []byte) (*Response, error) {
+	if len(resp) < 22 {
 		return nil, errors.New("length must be larger than 22 byte")
 	}
 
@@ -57,5 +71,23 @@ func (p *parser) Do(resp []byte) (*Response, error) {
 		DataLen:        fmt.Sprintf("%X", dataLenB),
 		EndCode:        fmt.Sprintf("%X", endCodeB),
 		Payload:        payloadB,
+	}, nil
+}
+
+//Processes the raw response with the 1E Frame Format.
+//here we only have
+func (p *parser_1E) Process(resp []byte) (*Response, error) {
+	if len(resp) < 2 {
+		return nil, errors.New("length must be larger than 2 bytes")
+	}
+
+	if len(resp) == 2 {
+		return nil, fmt.Errorf("PLC returned an error code: %X", resp[0:2])
+	}
+
+	return &Response{
+		SubHeader: fmt.Sprintf("%X", resp[0]),
+		EndCode:   fmt.Sprintf("%X", resp[1]),
+		Payload:   resp[2:],
 	}, nil
 }

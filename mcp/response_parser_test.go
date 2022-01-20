@@ -2,15 +2,16 @@ package mcp
 
 import (
 	"encoding/hex"
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParser_Do(t *testing.T) {
 	mcResp, _ := hex.DecodeString("d00000ffff0300040000000000")
 
-	p := NewParser()
-	response, err := p.Do(mcResp)
+	p := NewParser(Frame3E)
+	response, err := p.Process(mcResp)
 	if err != nil {
 		t.Fatalf("unexpected parser err: %v", err)
 	}

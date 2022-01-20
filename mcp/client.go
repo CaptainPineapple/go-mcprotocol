@@ -7,6 +7,13 @@ import (
 	"net"
 )
 
+type FrameVersion string
+
+const (
+	Frame1E FrameVersion = "1E"
+	Frame3E FrameVersion = "3E"
+)
+
 type Client interface {
 	Read(deviceName string, offset, numPoints int64) ([]byte, error)
 	BitRead(deviceName string, offset, numPoints int64) ([]byte, error)
@@ -16,17 +23,20 @@ type Client interface {
 	ShutDown()
 }
 
-// client3E is 3E frame mcp client
-type client3E struct {
+type client struct {
 	// PLC address
 	tcpAddr *net.TCPAddr
 	// PLC station
 	stn *station
 	// Connection Handle to PLC
 	conn *net.TCPConn
+
+	parser Parser
+
+	headerSize byte
 }
 
-func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, error) {
+func NewMitsubishiClient(host string, port int, stn *station, frameVersion FrameVersion) (Client, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%v", host, port))
 	if err != nil {
 		return nil, err
@@ -35,15 +45,24 @@ func New3EClient(host string, port int, stn *station, keep_alive bool) (Client, 
 	if err != nil {
 		return nil, err
 	}
-
-	//conn.SetKeepAlive(keep_alive)
-
-	return &client3E{tcpAddr: tcpAddr, stn: stn, conn: conn}, nil
+	var headerSize byte = 22
+	switch frameVersion {
+	case Frame1E:
+		headerSize = 2
+	case Frame3E:
+		headerSize = 22
+	}
+	return &client{
+		tcpAddr:    tcpAddr,
+		stn:        stn,
+		conn:       conn,
+		parser:     NewParser(frameVersion),
+		headerSize: headerSize}, nil
 }
 
 // MELSECコミュニケーションプロトコル p180
 // 11.4折返しテスト
-func (c *client3E) HealthCheck() error {
+func (c *client) HealthCheck() error {
 	requestStr := c.stn.BuildHealthCheckRequest()
 
 	// binary protocol
@@ -87,7 +106,7 @@ func (c *client3E) HealthCheck() error {
 // deviceName is device code name like 'D' register.
 // offset is device offset addr.
 // numPoints is number of read device points.
-func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, error) {
+func (c *client) Read(deviceName string, offset, numPoints int64) ([]byte, error) {
 	return c.readHelper(c.stn.BuildReadRequest(deviceName, offset, numPoints), numPoints)
 }
 
@@ -96,11 +115,11 @@ func (c *client3E) Read(deviceName string, offset, numPoints int64) ([]byte, err
 // offset is device offset addr.
 // numPoints is number of read device points.
 // results of payload of BitRead will return []byte contains 0, 1, 16 or 17(hex encoded 00, 01, 10, 11)
-func (c *client3E) BitRead(deviceName string, offset, numPoints int64) ([]byte, error) {
+func (c *client) BitRead(deviceName string, offset, numPoints int64) ([]byte, error) {
 	return c.readHelper(c.stn.BuildBitReadRequest(deviceName, offset, numPoints), numPoints)
 }
 
-func (c *client3E) readHelper(requestStr string, numPoints int64) ([]byte, error) {
+func (c *client) readHelper(requestStr string, numPoints int64) ([]byte, error) {
 	// TODO binary protocol
 	payload, err := hex.DecodeString(requestStr)
 	if err != nil {
@@ -113,7 +132,7 @@ func (c *client3E) readHelper(requestStr string, numPoints int64) ([]byte, error
 	}
 
 	// Receive message
-	readBuff := make([]byte, 22+2*numPoints) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
+	readBuff := make([]byte, int64(c.headerSize)+2*numPoints) // 22 is response header size. [sub header + network num + unit i/o num + unit station num + response length + response code]
 	readLen, err := c.conn.Read(readBuff)
 	if err != nil {
 		return nil, err
@@ -129,15 +148,15 @@ func (c *client3E) readHelper(requestStr string, numPoints int64) ([]byte, error
 // numPoints is number of write device points.
 // writeData is the data to be written. If writeData is larger than 2*numPoints bytes,
 // data larger than 2*numPoints bytes is ignored.
-func (c *client3E) Write(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
+func (c *client) Write(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
 	return c.writeHelper(c.stn.BuildWriteRequest(deviceName, offset, numPoints, writeData))
 }
 
-func (c *client3E) BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
+func (c *client) BitWrite(deviceName string, offset, numPoints int64, writeData []byte) ([]byte, error) {
 	return c.writeHelper(c.stn.BuildBitWriteRequest(deviceName, offset, numPoints, writeData))
 }
 
-func (c *client3E) writeHelper(requestStr string) ([]byte, error) {
+func (c *client) writeHelper(requestStr string) ([]byte, error) {
 	payload, err := hex.DecodeString(requestStr)
 	if err != nil {
 		return nil, err
@@ -157,6 +176,6 @@ func (c *client3E) writeHelper(requestStr string) ([]byte, error) {
 	return readBuff[:readLen], nil
 }
 
-func (c *client3E) ShutDown() {
+func (c *client) ShutDown() {
 	c.conn.Close()
 }
